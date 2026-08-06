@@ -1,10 +1,11 @@
 <?php
-// Prevent direct access
 if (!defined('ABSPATH')) {
     exit;
 }
 
-// Add meta box
+// ==========================================
+// افزودن متاباکس
+// ==========================================
 add_action('add_meta_boxes', 'wccb_add_product_meta_box');
 function wccb_add_product_meta_box() {
     add_meta_box(
@@ -17,28 +18,30 @@ function wccb_add_product_meta_box() {
     );
 }
 
+// ==========================================
+// رندر متاباکس
+// ==========================================
 function wccb_render_product_meta_box($post) {
     wp_nonce_field('wccb_product_meta', 'wccb_product_nonce');
     
-    // Load saved values
     $enable_cabinet = get_post_meta($post->ID, '_wccb_enable_cabinet', true);
     $product_config = get_post_meta($post->ID, '_wccb_product_config', true);
     
-if (empty($product_config) || !is_array($product_config)) {
-    $product_config = [
-        'height' => 72,
-        'panel_width' => 12,
-        'allowed_depths' => [12, 16, 24], // ✅ اضافه شد
-        'has_rod' => false,
-        'rod_count' => 1,
-        'has_shelves' => false,
-        'shelves_min' => 0,
-        'shelves_max' => 0,
-        'has_drawers' => false,
-        'drawer_options' => [],
-        'max_drawers' => 0,
-    ];
-}
+    if (empty($product_config) || !is_array($product_config)) {
+        $product_config = [
+            'height' => 72,
+            'panel_width' => 12,
+            'allowed_depths' => [12, 16, 24],
+            'has_rod' => false,
+            'rod_count' => 1,
+            'has_shelves' => false,
+            'shelves_min' => 0,
+            'shelves_max' => 0,
+            'has_drawers' => false,
+            'drawer_options' => [],
+            'max_drawers' => 0,
+        ];
+    }
     
     $drawer_types = [
         'A' => 'A (18"×8"×16")',
@@ -157,28 +160,26 @@ if (empty($product_config) || !is_array($product_config)) {
                 <span class="wccb-hint">Select cabinet height</span>
             </div>
             
-<!-- ========================================== -->
-<!-- Available Depths (Panel Width) - با چک‌باکس -->
-<!-- ========================================== -->
-<div class="wccb-row">
-    <label>Available Depths:</label>
-    <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
-        <?php $allowed_depths = $product_config['allowed_depths'] ?? [12, 16, 24]; ?>
-        <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
-            <input type="checkbox" name="wccb_allowed_depths[]" value="12" <?php checked(in_array(12, $allowed_depths)); ?>>
-            12"
-        </label>
-        <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
-            <input type="checkbox" name="wccb_allowed_depths[]" value="16" <?php checked(in_array(16, $allowed_depths)); ?>>
-            16"
-        </label>
-        <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
-            <input type="checkbox" name="wccb_allowed_depths[]" value="24" <?php checked(in_array(24, $allowed_depths)); ?>>
-            24"
-        </label>
-    </div>
-    <span class="wccb-hint">Select which depths are available for this product</span>
-</div>
+            <!-- Available Depths -->
+            <div class="wccb-row">
+                <label>Available Depths:</label>
+                <div style="display:flex; gap:15px; align-items:center; flex-wrap:wrap;">
+                    <?php $allowed_depths = $product_config['allowed_depths'] ?? [12, 16, 24]; ?>
+                    <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" name="wccb_allowed_depths[]" value="12" <?php checked(in_array(12, $allowed_depths)); ?>>
+                        12"
+                    </label>
+                    <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" name="wccb_allowed_depths[]" value="16" <?php checked(in_array(16, $allowed_depths)); ?>>
+                        16"
+                    </label>
+                    <label style="min-width:auto !important; font-weight:normal !important; display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" name="wccb_allowed_depths[]" value="24" <?php checked(in_array(24, $allowed_depths)); ?>>
+                        24"
+                    </label>
+                </div>
+                <span class="wccb-hint">Select which depths are available for this product</span>
+            </div>
             
             <!-- Rod -->
             <div class="wccb-row">
@@ -244,8 +245,8 @@ if (empty($product_config) || !is_array($product_config)) {
                 <div class="wccb-drawer-grid">
                     <?php foreach ($drawer_types as $key => $label): ?>
                     <label>
-                        <input type="checkbox" name="wccb_drawer_options[]" value="<?php echo $key; ?>" <?php checked(in_array($key, $selected_drawers)); ?>>
-                        <?php echo $label; ?>
+                        <input type="checkbox" name="wccb_drawer_options[]" value="<?php echo esc_attr($key); ?>" <?php checked(in_array($key, $selected_drawers)); ?>>
+                        <?php echo esc_html($label); ?>
                     </label>
                     <?php endforeach; ?>
                 </div>
@@ -260,9 +261,12 @@ if (empty($product_config) || !is_array($product_config)) {
     <?php
 }
 
-// Save meta box data
+// ==========================================
+// ذخیره متاباکس (اصلاح‌شده)
+// ==========================================
 add_action('save_post_product', 'wccb_save_product_meta_box');
 function wccb_save_product_meta_box($post_id) {
+    // ✅ بررسی Nonce
     if (!isset($_POST['wccb_product_nonce']) || !wp_verify_nonce($_POST['wccb_product_nonce'], 'wccb_product_meta')) {
         return;
     }
@@ -275,23 +279,36 @@ function wccb_save_product_meta_box($post_id) {
         return;
     }
     
-    // Save enable/disable
+    // ✅ ذخیره Enable/Disable
     $enable_cabinet = isset($_POST['wccb_enable_cabinet']) ? '1' : '0';
     update_post_meta($post_id, '_wccb_enable_cabinet', $enable_cabinet);
     
-    // Save product configuration
-$product_config = [
-    'height' => intval($_POST['wccb_height'] ?? 72),
-    'panel_width' => 12, // مقدار پیش‌فرض (دیگر استفاده نمی‌شود)
-    'allowed_depths' => isset($_POST['wccb_allowed_depths']) ? array_map('intval', $_POST['wccb_allowed_depths']) : [],
-    'has_rod' => isset($_POST['wccb_has_rod']),
-        'rod_count' => intval($_POST['wccb_rod_count'] ?? 1),
+    // ✅ ذخیره تنظیمات محصول با اعتبارسنجی
+    $allowed_depths = [];
+    if (isset($_POST['wccb_allowed_depths']) && is_array($_POST['wccb_allowed_depths'])) {
+        $allowed_depths = array_map('intval', $_POST['wccb_allowed_depths']);
+        $allowed_depths = array_filter($allowed_depths, function($v) {
+            return in_array($v, [12, 16, 24]);
+        });
+    }
+    
+    $drawer_options = [];
+    if (isset($_POST['wccb_drawer_options']) && is_array($_POST['wccb_drawer_options'])) {
+        $drawer_options = array_map('sanitize_text_field', $_POST['wccb_drawer_options']);
+    }
+    
+    $product_config = [
+        'height' => isset($_POST['wccb_height']) ? intval($_POST['wccb_height']) : 72,
+        'panel_width' => 12,
+        'allowed_depths' => $allowed_depths,
+        'has_rod' => isset($_POST['wccb_has_rod']),
+        'rod_count' => isset($_POST['wccb_rod_count']) ? intval($_POST['wccb_rod_count']) : 1,
         'has_shelves' => isset($_POST['wccb_has_shelves']),
-        'shelves_min' => intval($_POST['wccb_shelves_min'] ?? 0),
-        'shelves_max' => intval($_POST['wccb_shelves_max'] ?? 0),
+        'shelves_min' => isset($_POST['wccb_shelves_min']) ? intval($_POST['wccb_shelves_min']) : 0,
+        'shelves_max' => isset($_POST['wccb_shelves_max']) ? intval($_POST['wccb_shelves_max']) : 0,
         'has_drawers' => isset($_POST['wccb_has_drawers']),
-        'drawer_options' => isset($_POST['wccb_drawer_options']) ? array_map('sanitize_text_field', $_POST['wccb_drawer_options']) : [],
-        'max_drawers' => intval($_POST['wccb_max_drawers'] ?? 0),
+        'drawer_options' => $drawer_options,
+        'max_drawers' => isset($_POST['wccb_max_drawers']) ? intval($_POST['wccb_max_drawers']) : 0,
     ];
     
     update_post_meta($post_id, '_wccb_product_config', $product_config);
