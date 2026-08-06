@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WooCommerce Cabinet Builder Pro
  * Description: Smart price calculator for custom cabinets with advanced panel-based pricing
- * Version: 3.0
+ * Version: 3.1
  * Author: ITUNIFY
  * Text Domain: wc-cabinet
  * Requires Plugins: woocommerce
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 // ==================== CONSTANTS ====================
 define('WCCB_PATH', plugin_dir_path(__FILE__));
 define('WCCB_URL', plugin_dir_url(__FILE__));
-define('WCCB_VERSION', '3.0');
+define('WCCB_VERSION', '3.1');
 
 // ==================== DEFAULT SETTINGS ====================
 function wccb_get_default_settings() {
@@ -105,7 +105,7 @@ function wccb_check_woocommerce() {
 }
 
 // ==========================================
-// توابع محاسباتی اصلی
+// توابع محاسباتی اصلی (اصلاح‌شده)
 // ==========================================
 
 function wccb_get_panel_price($panel_width, $height) {
@@ -130,8 +130,14 @@ function wccb_get_back_strip_price($cabinet_width) {
     return round($price, 2);
 }
 
+// ✅ تابع اصلاح‌شده با پشتیبانی از count و اعتبارسنجی
 function wccb_get_drawer_price($drawer_type, $color, $count = 1, $cabinet_width = null, $drawer_height = 8) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
+    
+    // اعتبارسنجی ورودی‌ها
+    $count = max(1, intval($count));
+    $drawer_height = max(4, intval($drawer_height));
+    $color = sanitize_text_field($color);
     
     if (isset($settings['drawer_prices'][$drawer_type])) {
         $prices = $settings['drawer_prices'][$drawer_type];
@@ -142,20 +148,19 @@ function wccb_get_drawer_price($drawer_type, $color, $count = 1, $cabinet_width 
     if ($drawer_type === 'custom' && $cabinet_width !== null) {
         $base_price = wccb_get_custom_drawer_base_price($cabinet_width, $drawer_height);
         $multiplier = wccb_get_custom_drawer_multiplier($cabinet_width);
-        $final_price = $base_price * $multiplier;
-        return $final_price * $count;
+        return ($base_price * $multiplier) * $count;
     }
     
     return 0;
 }
 
-// ==========================================
-// ✅ تابع ضریب فروش (فقط یک بار)
-// ==========================================
+// ✅ تابع اصلاح‌شده با استفاده از wp_get_current_user
 function wccb_get_multiplier($color) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
+    $user = wp_get_current_user();
     
-    if (current_user_can('building_builder') || current_user_can('maker')) {
+    // بررسی نقش‌های کاربر
+    if (in_array('building_builder', (array) $user->roles) || in_array('maker', (array) $user->roles)) {
         $builder_multipliers = $settings['builder_multipliers'] ?? [
             'white' => 2.8,
             'gray' => 4.2,
@@ -165,13 +170,14 @@ function wccb_get_multiplier($color) {
         return $builder_multipliers[$color] ?? 2.8;
     }
     
-    if (current_user_can('wholesale')) {
+    if (in_array('wholesale', (array) $user->roles)) {
         return 1;
     }
     
+    // بررسی تخفیف‌ها
     global $product;
     if ($product && $product->is_on_sale()) {
-        return $settings['multipliers'][$color] * 0.9;
+        return ($settings['multipliers'][$color] ?? 3) * 0.9;
     }
     
     return $settings['multipliers'][$color] ?? 3;
@@ -205,6 +211,7 @@ function wccb_get_custom_drawer_multiplier($cabinet_width) {
     }
 }
 
+// ✅ تابع اصلاح‌شده با مدیریت بهتر خطاها
 function wccb_calculate_price($product_config, $user_input) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
     
@@ -235,50 +242,57 @@ function wccb_calculate_price($product_config, $user_input) {
         $rod_total = wccb_get_rod_price($cabinet_width) * ($product_config['rod_count'] ?? 1);
     }
     
-// 8. کشوها
-$drawers_total = 0;
-if (!empty($product_config['has_drawers']) && !empty($drawers)) {
-    $custom_heights = $drawers['custom_heights'] ?? [];
-    
-    foreach ($drawers as $drawer_type => $count) {
-        // رد کردن custom_heights (آرایه)
-        if ($drawer_type === 'custom_heights') {
-            continue;
-        }
+    // محاسبه کشوها (اصلاح‌شده)
+    $drawers_total = 0;
+    if (!empty($product_config['has_drawers']) && !empty($drawers)) {
+        $custom_heights = $drawers['custom_heights'] ?? [];
         
-        if ($drawer_type === 'custom') {
-            $drawer_height = 8;
-            if (!empty($custom_heights['custom_6'])) {
-                $drawer_height = 6;
-            } elseif (!empty($custom_heights['custom_8'])) {
-                $drawer_height = 8;
-            } elseif (!empty($custom_heights['custom_12'])) {
-                $drawer_height = 12;
+        foreach ($drawers as $drawer_type => $count) {
+            if ($drawer_type === 'custom_heights') {
+                continue;
             }
-            $drawers_total += wccb_get_drawer_price('custom', $color, $count, $cabinet_width, $drawer_height);
-        } else {
-            $drawers_total += wccb_get_drawer_price($drawer_type, $color, $count);
+            
+            // اعتبارسنجی count
+            $count = intval($count);
+            if ($count <= 0) {
+                continue;
+            }
+            
+            if ($drawer_type === 'custom') {
+                $drawer_height = 8;
+                if (!empty($custom_heights['custom_6'])) {
+                    $drawer_height = 6;
+                } elseif (!empty($custom_heights['custom_8'])) {
+                    $drawer_height = 8;
+                } elseif (!empty($custom_heights['custom_12'])) {
+                    $drawer_height = 12;
+                }
+                $drawers_total += wccb_get_drawer_price('custom', $color, $count, $cabinet_width, $drawer_height);
+            } else {
+                $drawers_total += wccb_get_drawer_price($drawer_type, $color, $count);
+            }
         }
     }
-}
     
     $cabinet_cost = $vertical_panels + $horizontal_panels + $shelves_total + $screws_for_shelves + $screws_for_horizontal + $back_strip_price + $rod_total;
     $multiplier = wccb_get_multiplier($color);
     $cabinet_final_price = $cabinet_cost * $multiplier;
     $final_price = $cabinet_final_price + $drawers_total;
-        // لاگ برای بررسی
-    error_log('🔍 [DEBUG] Cabinet Width: ' . $cabinet_width);
-    error_log('🔍 [DEBUG] Color: ' . $color);
-    error_log('🔍 [DEBUG] Multiplier: ' . $multiplier);
-    error_log('🔍 [DEBUG] Cabinet Cost: ' . $cabinet_cost);
-    error_log('🔍 [DEBUG] Final Price: ' . $final_price);
-    error_log('🔍 [DEBUG PHP] Drawers Total: ' . $drawers_total);
-error_log('🔍 [DEBUG PHP] Drawers Data: ' . print_r($drawers, true));
+    
+    // لاگ برای بررسی (فعال در حالت DEBUG)
+    if (defined('WP_DEBUG') && WP_DEBUG) {
+        error_log('🔍 [DEBUG] Cabinet Width: ' . $cabinet_width);
+        error_log('🔍 [DEBUG] Color: ' . $color);
+        error_log('🔍 [DEBUG] Multiplier: ' . $multiplier);
+        error_log('🔍 [DEBUG] Cabinet Cost: ' . $cabinet_cost);
+        error_log('🔍 [DEBUG] Final Price: ' . $final_price);
+    }
+    
     return round($final_price, 2);
 }
 
 // ==========================================
-// ✅ تنظیم قیمت پیش‌فرض برای محصولات کابینت ساز
+// تنظیم قیمت پیش‌فرض (با پشتیبانی از محصولات متغیر)
 // ==========================================
 add_action('save_post_product', 'wccb_set_default_price', 10, 3);
 function wccb_set_default_price($post_id, $post, $update) {
@@ -290,6 +304,16 @@ function wccb_set_default_price($post_id, $post, $update) {
             update_post_meta($post_id, '_regular_price', 1);
             update_post_meta($post_id, '_price', 1);
         }
+    }
+}
+
+// ✅ پشتیبانی از واریاسیون‌ها
+add_action('woocommerce_variation_options_pricing', 'wccb_set_variation_default_price', 10, 3);
+function wccb_set_variation_default_price($loop, $variation_data, $variation) {
+    $enable_cabinet = get_post_meta($variation->ID, '_wccb_enable_cabinet', true);
+    if ($enable_cabinet === '1') {
+        update_post_meta($variation->ID, '_regular_price', 1);
+        update_post_meta($variation->ID, '_price', 1);
     }
 }
 
@@ -310,11 +334,10 @@ function wccb_force_purchasable($purchasable, $product) {
 }
 
 // ==========================================
-// ✅ مخفی کردن قیمت محصولات کابینت‌ساز در آرشیو و نمایش متن جایگزین
+// مخفی کردن قیمت در آرشیو
 // ==========================================
 add_filter('woocommerce_get_price_html', 'wccb_hide_price_in_archive', 10, 2);
 function wccb_hide_price_in_archive($price, $product) {
-    // فقط در صفحه آرشیو (نه در صفحه محصول)
     if (!is_product()) {
         $product_id = $product->get_id();
         $enable_cabinet = get_post_meta($product_id, '_wccb_enable_cabinet', true);
@@ -327,7 +350,7 @@ function wccb_hide_price_in_archive($price, $product) {
 }
 
 // ==========================================
-// ✅ غیرفعال کردن دکمه "Add to Cart" در آرشیو برای محصولات کابینت‌ساز
+// تغییر دکمه افزودن به سبد خرید در آرشیو
 // ==========================================
 add_filter('woocommerce_loop_add_to_cart_link', 'wccb_remove_add_to_cart_in_archive', 10, 2);
 function wccb_remove_add_to_cart_in_archive($button, $product) {
@@ -355,10 +378,10 @@ function wccb_load_files() {
     if (!is_admin()) {
         require_once WCCB_PATH . 'frontend/product-fields.php';
     }
-
 }
+
 // ==========================================
-// ✅ حذف دکمه Add to Cart ووکامرس از صفحه محصول
+// حذف دکمه Add to Cart پیش‌فرض
 // ==========================================
 add_action('woocommerce_single_product_summary', 'wccb_remove_default_add_to_cart', 1);
 function wccb_remove_default_add_to_cart() {
