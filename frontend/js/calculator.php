@@ -2,54 +2,70 @@
 header('Content-Type: application/javascript');
 ?>
 (function($) {
+    <?php
+header('Content-Type: application/javascript');
+defined('ABSPATH') || exit;
+
+$settings = get_option('wccb_settings', []);
+?>
+
+(function ($) {
     'use strict';
 
-    console.log('WCCB Calculator loaded!');
+    console.log('WCCB Calculator v3.1.0 Loaded');
 
-    var settings = {
-        panelPrices: { 12: 16, 16: 20, 24: 30 },
-        rodPrices: { '15_20': 3, '21_30': 4, '31_40': 5 },
-        backStripPrices: { '15_20': 2, '21_30': 3, '31_40': 4 },
-        screwPricePerShelf: 2,
-        multipliers: { 'white': 3, 'gray': 4.5, 'oak': 4.5, 'other': 6 },
-        builderMultipliers: { 'white': 2.8, 'gray': 4.2, 'oak': 4.2, 'other': 5.6 },
-        customDrawerPricePerInch: 5,
-        customDrawerWidthPricePerInch: 3,
-        drawerPrices: {
-            'A':    { 'white': 80, 'gray_oak': 85, 'other': 90 },
-            'A2':   { 'white': 70, 'gray_oak': 75, 'other': 80 },
-            'B':    { 'white': 80, 'gray_oak': 85, 'other': 90 },
-            'B2':   { 'white': 80, 'gray_oak': 85, 'other': 90 },
-            'C':    { 'white': 110, 'gray_oak': 115, 'other': 120 },
-            'C2':   { 'white': 95, 'gray_oak': 100, 'other': 105 },
-            'D':    { 'white': 110, 'gray_oak': 115, 'other': 120 },
-            'D2':   { 'white': 95, 'gray_oak': 100, 'other': 105 },
-            'E':    { 'white': 140, 'gray_oak': 145, 'other': 150 },
-            'E2':   { 'white': 120, 'gray_oak': 125, 'other': 130 },
-            'F':    { 'white': 150, 'gray_oak': 155, 'other': 160 },
-            'F2':   { 'white': 130, 'gray_oak': 135, 'other': 140 },
-            'G':    { 'white': 90, 'gray_oak': 95, 'other': 100 },
-            'G2':   { 'white': 85, 'gray_oak': 90, 'other': 95 },
-            'H':    { 'white': 120, 'gray_oak': 125, 'other': 130 },
-            'H2':   { 'white': 105, 'gray_oak': 110, 'other': 115 },
-            'I':    { 'white': 160, 'gray_oak': 165, 'other': 170 },
-            'I2':   { 'white': 140, 'gray_oak': 145, 'other': 150 },
-            'J12':  { 'white': 55, 'gray_oak': 60, 'other': 65 },
-            'J':    { 'white': 60, 'gray_oak': 65, 'other': 70 },
-            'J24':  { 'white': 70, 'gray_oak': 75, 'other': 80 },
-            'J212': { 'white': 55, 'gray_oak': 60, 'other': 65 },
-            'J2':   { 'white': 60, 'gray_oak': 65, 'other': 70 },
-            'J224': { 'white': 70, 'gray_oak': 75, 'other': 80 },
-            'J30_12': { 'white': 60, 'gray_oak': 65, 'other': 70 },
-            'J30':    { 'white': 65, 'gray_oak': 70, 'other': 75 },
-            'J30_24': { 'white': 75, 'gray_oak': 80, 'other': 85 }
+    const settings = window.wccbSettings || <?php
+        echo wp_json_encode(
+            $settings,
+            JSON_UNESCAPED_UNICODE |
+            JSON_UNESCAPED_SLASHES
+        );
+    ?>;
+
+    settings.panel_prices ??= {};
+    settings.rod_prices ??= {};
+    settings.back_strip_prices ??= {};
+    settings.drawer_prices ??= {};
+    settings.multipliers ??= {};
+    settings.builder_multipliers ??= {};
+
+    function getSetting(group, key, fallback = 0) {
+
+        if (
+            settings[group] &&
+            settings[group][key] !== undefined
+        ) {
+            return Number(settings[group][key]);
         }
-    };
 
-    function getPanelPrice(panelWidth, height) {
-        var price96 = settings.panelPrices[panelWidth] || 16;
-        return (price96 / 96) * height;
+        return Number(fallback);
+
     }
+function getRodPrice(cabinetWidth) {
+
+    if (cabinetWidth <= 20) {
+        return getSetting(
+            'rod_prices',
+            '15_20',
+            3
+        );
+    }
+
+    if (cabinetWidth <= 30) {
+        return getSetting(
+            'rod_prices',
+            '21_30',
+            4
+        );
+    }
+
+    return getSetting(
+        'rod_prices',
+        '31_40',
+        5
+    );
+
+}
 
     function getRodPrice(cabinetWidth) {
         if (cabinetWidth <= 20) {
@@ -61,15 +77,31 @@ header('Content-Type: application/javascript');
         }
     }
 
-    function getBackStripPrice(cabinetWidth) {
-        if (cabinetWidth <= 20) {
-            return 2;
-        } else if (cabinetWidth <= 30) {
-            return 3;
-        } else {
-            return 4;
-        }
+function getBackStripPrice(cabinetWidth) {
+
+    if (cabinetWidth <= 20) {
+        return getSetting(
+            'back_strip_prices',
+            '15_20',
+            2
+        );
     }
+
+    if (cabinetWidth <= 30) {
+        return getSetting(
+            'back_strip_prices',
+            '21_30',
+            3
+        );
+    }
+
+    return getSetting(
+        'back_strip_prices',
+        '31_40',
+        4
+    );
+
+}
 
     function getMultiplier(color) {
         var isBuildingBuilder = window.wccb_vars?.isBuildingBuilder === 'true';
