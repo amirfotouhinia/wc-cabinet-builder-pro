@@ -94,6 +94,11 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+.wccb-color-btn.active {
+    border-color: #007cba !important;
+    box-shadow: 0 0 0 2px #007cba33;
+}
+
 /* ===== Drawers ===== */
 .wccb-drawer-row {
     display: flex;
@@ -156,6 +161,36 @@
     color: #28a745;
 }
 
+/* ===== Cart Fixes (اصلاح‌شده) ===== */
+.woocommerce-cart .cart_item .product-price .amount {
+    visibility: hidden !important;
+    font-size: 0 !important;
+}
+
+.woocommerce-cart .cart_item .product-price {
+    font-size: 0 !important;
+}
+
+.woocommerce-cart .cart_item .product-price::before {
+    content: "Calculated" !important;
+    font-size: 14px !important;
+    color: #666 !important;
+    visibility: visible !important;
+}
+
+.woocommerce-cart .cart_item .product-subtotal .amount {
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+    color: #007cba !important;
+    visibility: visible !important;
+}
+
+/* ===== Woodmart compatibility ===== */
+.woocommerce-cart .cart_item .product-price .woocommerce-Price-amount {
+    visibility: hidden !important;
+    font-size: 0 !important;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 768px) {
     .wccb-fields {
@@ -207,31 +242,20 @@
     }
 }
 
-/* ===== مخفی کردن قیمت نمایشی محصولات کابینت ساز در سبد خرید ===== */
-.woocommerce-cart .cart_item .product-price .amount {
-    display: none !important;
+/* ===== Loading State ===== */
+.wccb-loading {
+    opacity: 0.6;
+    pointer-events: none;
 }
 
-/* نمایش قیمت کل به صورت برجسته */
-.woocommerce-cart .cart_item .product-subtotal .amount {
-    font-weight: bold !important;
-    font-size: 1.1em !important;
-    color: #007cba !important;
+.wccb-loading::after {
+    content: "...";
+    animation: wccb-dots 1.5s steps(4, end) infinite;
 }
 
-/* ===== استایل برای سبد خرید در وودمارت ===== */
-.woocommerce-cart .cart_item .product-price .woocommerce-Price-amount {
-    display: none !important;
-}
-
-/* اگر قیمت نمایشی در جای دیگری نمایش داده می‌شود */
-.woocommerce-cart .cart_item .product-price {
-    font-size: 0 !important;
-}
-
-/* نمایش متن جایگزین برای قیمت */
-.woocommerce-cart .cart_item .product-price::before {
-    content: "Calculated" !important;
-    font-size: 14px !important;
-    color: #666 !important;
+@keyframes wccb-dots {
+    0% { content: ""; }
+    25% { content: "."; }
+    50% { content: ".."; }
+    75% { content: "..."; }
 }
