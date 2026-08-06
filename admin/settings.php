@@ -12,38 +12,44 @@ function wccb_add_admin_menu() {
 }
 
 function wccb_settings_page() {
-    if (isset($_POST['wccb_save']) && check_admin_referer('wccb_settings')) {
+    // ✅ بررسی Nonce و اعتبارسنجی
+    if (isset($_POST['wccb_save'])) {
+        if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'wccb_settings')) {
+            wp_die('Security check failed');
+        }
+        
         $settings = get_option('wccb_settings', wccb_get_default_settings());
         
         // 1. قیمت پنل‌ها
         $panel_widths = [12, 16, 24];
         foreach ($panel_widths as $width) {
-            $settings['panel_prices'][$width] = floatval($_POST["panel_{$width}"] ?? 0);
+            $settings['panel_prices'][$width] = isset($_POST["panel_{$width}"]) ? floatval($_POST["panel_{$width}"]) : 0;
         }
         
         // 2. قیمت Rod
-        $settings['rod_prices']['15_20'] = floatval($_POST['rod_15_20'] ?? 3);
-        $settings['rod_prices']['21_30'] = floatval($_POST['rod_21_30'] ?? 4);
-        $settings['rod_prices']['31_40'] = floatval($_POST['rod_31_40'] ?? 5);
+        $settings['rod_prices']['15_20'] = isset($_POST['rod_15_20']) ? floatval($_POST['rod_15_20']) : 3;
+        $settings['rod_prices']['21_30'] = isset($_POST['rod_21_30']) ? floatval($_POST['rod_21_30']) : 4;
+        $settings['rod_prices']['31_40'] = isset($_POST['rod_31_40']) ? floatval($_POST['rod_31_40']) : 5;
         
         // 3. قیمت Back Strip
-        $settings['back_strip_prices']['15_20'] = floatval($_POST['back_strip_15_20'] ?? 2);
-        $settings['back_strip_prices']['21_30'] = floatval($_POST['back_strip_21_30'] ?? 3);
-        $settings['back_strip_prices']['31_40'] = floatval($_POST['back_strip_31_40'] ?? 4);
+        $settings['back_strip_prices']['15_20'] = isset($_POST['back_strip_15_20']) ? floatval($_POST['back_strip_15_20']) : 2;
+        $settings['back_strip_prices']['21_30'] = isset($_POST['back_strip_21_30']) ? floatval($_POST['back_strip_21_30']) : 3;
+        $settings['back_strip_prices']['31_40'] = isset($_POST['back_strip_31_40']) ? floatval($_POST['back_strip_31_40']) : 4;
         
-        // 4. کم و دبل
-        $settings['screw_price_per_shelf'] = floatval($_POST['screw_price'] ?? 2);
+        // 4. پیچ‌ها
+        $settings['screw_price_per_shelf'] = isset($_POST['screw_price']) ? floatval($_POST['screw_price']) : 2;
         
         // 5. ضرایب فروش
         $colors = ['white', 'gray', 'oak', 'other'];
         foreach ($colors as $color) {
-            $settings['multipliers'][$color] = floatval($_POST["multiplier_{$color}"] ?? 3);
+            $settings['multipliers'][$color] = isset($_POST["multiplier_{$color}"]) ? floatval($_POST["multiplier_{$color}"]) : 3;
         }
-        // 5.5. Building Builder Multipliers (B2B)
-        $colors = ['white', 'gray', 'oak', 'other'];
+        
+        // 5.5. ضرایب Building Builder
         foreach ($colors as $color) {
-            $settings['builder_multipliers'][$color] = floatval($_POST["builder_{$color}"] ?? 0);
+            $settings['builder_multipliers'][$color] = isset($_POST["builder_{$color}"]) ? floatval($_POST["builder_{$color}"]) : 0;
         }
+        
         // 6. قیمت کشوهای استاندارد
         $standard_drawers = [
             'A', 'A2', 'B', 'B2', 'C', 'C2', 'D', 'D2', 'E', 'E2', 'F', 'F2',
@@ -51,17 +57,19 @@ function wccb_settings_page() {
             'J', 'J2', 'J24', 'J224', 'J12', 'J212',
             'J30_12', 'J30', 'J30_24'
         ];
-        // ========== 7. Custom Drawer Multipliers ==========
-        $settings['custom_drawer_multipliers']['15_20'] = floatval($_POST['custom_drawer_15_20'] ?? 1);
-        $settings['custom_drawer_multipliers']['21_30'] = floatval($_POST['custom_drawer_21_30'] ?? 1.5);
-        $settings['custom_drawer_multipliers']['31_40'] = floatval($_POST['custom_drawer_31_40'] ?? 2);
+        
         foreach ($standard_drawers as $drawer) {
             $settings['drawer_prices'][$drawer] = [
-                'white' => floatval($_POST["drawer_{$drawer}_white"] ?? 0),
-                'gray_oak' => floatval($_POST["drawer_{$drawer}_gray_oak"] ?? 0),
-                'other' => floatval($_POST["drawer_{$drawer}_other"] ?? 0),
+                'white' => isset($_POST["drawer_{$drawer}_white"]) ? floatval($_POST["drawer_{$drawer}_white"]) : 0,
+                'gray_oak' => isset($_POST["drawer_{$drawer}_gray_oak"]) ? floatval($_POST["drawer_{$drawer}_gray_oak"]) : 0,
+                'other' => isset($_POST["drawer_{$drawer}_other"]) ? floatval($_POST["drawer_{$drawer}_other"]) : 0,
             ];
         }
+        
+        // 7. ضرایب کشوهای کاستوم
+        $settings['custom_drawer_multipliers']['15_20'] = isset($_POST['custom_drawer_15_20']) ? floatval($_POST['custom_drawer_15_20']) : 1;
+        $settings['custom_drawer_multipliers']['21_30'] = isset($_POST['custom_drawer_21_30']) ? floatval($_POST['custom_drawer_21_30']) : 1.5;
+        $settings['custom_drawer_multipliers']['31_40'] = isset($_POST['custom_drawer_31_40']) ? floatval($_POST['custom_drawer_31_40']) : 2;
         
         update_option('wccb_settings', $settings);
         echo '<div class="notice notice-success"><p>Settings saved successfully.</p></div>';
@@ -160,11 +168,7 @@ function wccb_settings_page() {
             </table>
             
             <hr>
-            <hr>
 
-            <!-- ========================================== -->
-            <!-- بخش ۵.۵: ضرایب Building Builder (B2B) -->
-            <!-- ========================================== -->
             <h2>5.5 Building Builder Multipliers (B2B / Wholesale)</h2>
             <p>Applied to users with role: <strong>Building builder</strong></p>
             <p class="description">These multipliers override regular multipliers for building builder users.</p>
@@ -190,6 +194,7 @@ function wccb_settings_page() {
             <p class="description">💡 Building builder users get special discounted prices.</p>
             
             <hr>
+            
             <h2>6. Standard Drawer Prices</h2>
             <p>Prices for standard drawers (no multiplier applied).</p>
             <?php
@@ -250,12 +255,8 @@ function wccb_settings_page() {
                 </tbody>
             </table>
             
-            <p><input type="submit" name="wccb_save" class="button-primary" value="Save Settings"></p>
             <hr>
 
-            <!-- ========================================== -->
-            <!-- بخش ۷: ضرایب کشوهای کاستوم (Custom Drawer Multipliers) -->
-            <!-- ========================================== -->
             <h2>7. Custom Drawer Multipliers</h2>
             <p>These multipliers are applied to custom drawers (non-standard widths: 15-17, 19-23, 25-29, 31-40).</p>
             <p class="description">Only applies when width is NOT 18", 24", or 30".</p>
@@ -289,6 +290,8 @@ function wccb_settings_page() {
             <p class="description">💡 Example: If custom drawer base price is $100 and multiplier is 1.5, final price = $150</p>
             
             <hr>
+            
+            <p><input type="submit" name="wccb_save" class="button-primary" value="Save Settings"></p>
         </form>
     </div>
     <?php
