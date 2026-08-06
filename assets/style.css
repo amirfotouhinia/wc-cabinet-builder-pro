@@ -1,0 +1,237 @@
+/* ===== Main Container ===== */
+.wccb-fields {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 25px;
+    margin: 20px 0;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+.wccb-fields h3 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+}
+
+/* ===== Fields ===== */
+.wccb-field {
+    margin: 18px 0;
+}
+
+.wccb-field label {
+    display: inline-block;
+    min-width: 140px;
+    font-weight: 600;
+    color: #555;
+}
+
+.wccb-field input[type="range"] {
+    width: 60%;
+    max-width: 300px;
+    height: 6px;
+    background: #ddd;
+    border-radius: 5px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.wccb-field input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #007cba;
+    cursor: pointer;
+}
+
+.wccb-field input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #007cba;
+    cursor: pointer;
+    border: none;
+}
+
+.wccb-field input[type="number"] {
+    width: 80px;
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.wccb-field select {
+    padding: 5px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 180px;
+}
+
+/* ===== Color Buttons ===== */
+.wccb-color-group {
+    display: inline-flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.wccb-color-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s;
+    min-width: 60px;
+    text-align: center;
+    color: #333;
+}
+
+.wccb-color-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* ===== Drawers ===== */
+.wccb-drawer-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #eee;
+}
+
+.wccb-drawer-row select {
+    min-width: 160px;
+}
+
+.wccb-drawer-row input[type="number"] {
+    width: 60px;
+}
+
+.wccb-remove-drawer {
+    color: #d63638;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 8px;
+    line-height: 1;
+}
+
+.wccb-remove-drawer:hover {
+    color: #b32d2e;
+}
+
+#wccb-add-drawer {
+    margin-top: 5px;
+}
+
+/* ===== Price Box ===== */
+.wccb-price-box {
+    background: #e9ecef;
+    padding: 18px;
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 25px;
+    border: 2px solid #dee2e6;
+}
+
+.wccb-price-box h3 {
+    margin: 0 0 5px 0;
+    color: #666;
+    font-size: 16px;
+    border: none;
+    padding: 0;
+}
+
+#wccb_total_price {
+    font-size: 32px;
+    font-weight: bold;
+    color: #28a745;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 768px) {
+    .wccb-fields {
+        padding: 15px;
+    }
+    
+    .wccb-field label {
+        display: block;
+        min-width: auto;
+        margin-bottom: 5px;
+    }
+    
+    .wccb-field input[type="range"] {
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    .wccb-color-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .wccb-color-btn {
+        padding: 4px 10px;
+        font-size: 12px;
+        min-width: 50px;
+    }
+    
+    .wccb-drawer-row {
+        flex-wrap: wrap;
+    }
+    
+    .wccb-drawer-row select {
+        min-width: 120px;
+        flex: 1;
+    }
+    
+    #wccb_total_price {
+        font-size: 24px;
+    }
+}
+
+/* ===== Print ===== */
+@media print {
+    .wccb-fields {
+        border: 1px solid #ccc;
+        background: #fff;
+    }
+}
+
+/* ===== مخفی کردن قیمت نمایشی محصولات کابینت ساز در سبد خرید ===== */
+.woocommerce-cart .cart_item .product-price .amount {
+    display: none !important;
+}
+
+/* نمایش قیمت کل به صورت برجسته */
+.woocommerce-cart .cart_item .product-subtotal .amount {
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+    color: #007cba !important;
+}
+
+/* ===== استایل برای سبد خرید در وودمارت ===== */
+.woocommerce-cart .cart_item .product-price .woocommerce-Price-amount {
+    display: none !important;
+}
+
+/* اگر قیمت نمایشی در جای دیگری نمایش داده می‌شود */
+.woocommerce-cart .cart_item .product-price {
+    font-size: 0 !important;
+}
+
+/* نمایش متن جایگزین برای قیمت */
+.woocommerce-cart .cart_item .product-price::before {
+    content: "Calculated" !important;
+    font-size: 14px !important;
+    color: #666 !important;
+}
