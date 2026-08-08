@@ -105,7 +105,7 @@ function wccb_check_woocommerce() {
 }
 
 // ==========================================
-// توابع محاسباتی اصلی (اصلاح‌شده)
+// توابع محاسباتی اصلی
 // ==========================================
 
 function wccb_get_panel_price($panel_width, $height) {
@@ -116,35 +116,47 @@ function wccb_get_panel_price($panel_width, $height) {
 
 function wccb_get_rod_price($cabinet_width) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
-    $base_price = 3;
-    $price_per_inch = (5 - 3) / (40 - 15);
-    $price = $base_price + ($cabinet_width - 15) * $price_per_inch;
-    return round($price, 2);
+    
+    if ($cabinet_width <= 20) {
+        return $settings['rod_prices']['15_20'] ?? 3;
+    } elseif ($cabinet_width <= 30) {
+        return $settings['rod_prices']['21_30'] ?? 4;
+    } else {
+        return $settings['rod_prices']['31_40'] ?? 5;
+    }
 }
-
 function wccb_get_back_strip_price($cabinet_width) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
-    $base_price = 2;
-    $price_per_inch = (4 - 2) / (40 - 15);
-    $price = $base_price + ($cabinet_width - 15) * $price_per_inch;
-    return round($price, 2);
+    
+    if ($cabinet_width <= 20) {
+        return $settings['back_strip_prices']['15_20'] ?? 2;
+    } elseif ($cabinet_width <= 30) {
+        return $settings['back_strip_prices']['21_30'] ?? 3;
+    } else {
+        return $settings['back_strip_prices']['31_40'] ?? 4;
+    }
 }
-
-// ✅ تابع اصلاح‌شده با پشتیبانی از count و اعتبارسنجی
 function wccb_get_drawer_price($drawer_type, $color, $count = 1, $cabinet_width = null, $drawer_height = 8) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
     
-    // اعتبارسنجی ورودی‌ها
     $count = max(1, intval($count));
     $drawer_height = max(4, intval($drawer_height));
     $color = sanitize_text_field($color);
     
     if (isset($settings['drawer_prices'][$drawer_type])) {
         $prices = $settings['drawer_prices'][$drawer_type];
+        
+        // ✅ تبدیل gray به gray_oak برای هماهنگی با تنظیمات
+        if ($color === 'gray') {
+            $color = 'gray_oak';
+        }
+        
         $price = $prices[$color] ?? $prices['white'] ?? 0;
         return $price * $count;
     }
     
+
+
     if ($drawer_type === 'custom' && $cabinet_width !== null) {
         $base_price = wccb_get_custom_drawer_base_price($cabinet_width, $drawer_height);
         $multiplier = wccb_get_custom_drawer_multiplier($cabinet_width);
@@ -154,12 +166,10 @@ function wccb_get_drawer_price($drawer_type, $color, $count = 1, $cabinet_width 
     return 0;
 }
 
-// ✅ تابع اصلاح‌شده با استفاده از wp_get_current_user
 function wccb_get_multiplier($color) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
     $user = wp_get_current_user();
     
-    // بررسی نقش‌های کاربر
     if (in_array('building_builder', (array) $user->roles) || in_array('maker', (array) $user->roles)) {
         $builder_multipliers = $settings['builder_multipliers'] ?? [
             'white' => 2.8,
@@ -174,7 +184,6 @@ function wccb_get_multiplier($color) {
         return 1;
     }
     
-    // بررسی تخفیف‌ها
     global $product;
     if ($product && $product->is_on_sale()) {
         return ($settings['multipliers'][$color] ?? 3) * 0.9;
@@ -211,17 +220,31 @@ function wccb_get_custom_drawer_multiplier($cabinet_width) {
     }
 }
 
-// ✅ تابع اصلاح‌شده با مدیریت بهتر خطاها
+// ✅ تابع اصلاح‌شده: دریافت panel_width از user_input
 function wccb_calculate_price($product_config, $user_input) {
     $settings = get_option('wccb_settings', wccb_get_default_settings());
     
-    $height = $product_config['height'] ?? 72;
-    $panel_width = $product_config['panel_width'] ?? 12;
-    $cabinet_width = $user_input['width'] ?? 20;
-    $shelves = $user_input['shelves'] ?? 0;
-    $color = $user_input['color'] ?? 'white';
-    $drawers = $user_input['drawers'] ?? [];
+    // ==========================================
+    // ۱. دریافت و اعتبارسنجی ورودی‌ها
+    // ==========================================
+    $height = isset($product_config['height']) ? intval($product_config['height']) : 72;
     
+    // ✅ دریافت panel_width از user_input (ارسال شده از AJAX)
+    $panel_width = isset($user_input['panel_width']) ? intval($user_input['panel_width']) : 12;
+    $panel_width = in_array($panel_width, [12, 16, 24]) ? $panel_width : 12;
+    
+    $cabinet_width = isset($user_input['width']) ? intval($user_input['width']) : 20;
+    $shelves = isset($user_input['shelves']) ? intval($user_input['shelves']) : 0;
+    $color = isset($user_input['color']) ? sanitize_text_field($user_input['color']) : 'white';
+    $drawers = isset($user_input['drawers']) && is_array($user_input['drawers']) ? $user_input['drawers'] : [];
+    
+    $cabinet_width = max(15, min(40, $cabinet_width));
+    $shelves = max(0, min(15, $shelves));
+    $height = max(16, min(96, $height));
+    
+    // ==========================================
+    // ۲. محاسبات
+    // ==========================================
     $panel_price = wccb_get_panel_price($panel_width, $height);
     $vertical_panels = 2 * $panel_price;
     
@@ -239,32 +262,33 @@ function wccb_calculate_price($product_config, $user_input) {
     
     $rod_total = 0;
     if (!empty($product_config['has_rod'])) {
-        $rod_total = wccb_get_rod_price($cabinet_width) * ($product_config['rod_count'] ?? 1);
+        $rod_total = wccb_get_rod_price($cabinet_width) * (isset($product_config['rod_count']) ? intval($product_config['rod_count']) : 1);
     }
     
-    // محاسبه کشوها (اصلاح‌شده)
+    // ==========================================
+    // ۳. محاسبه کشوها
+    // ==========================================
     $drawers_total = 0;
     if (!empty($product_config['has_drawers']) && !empty($drawers)) {
-        $custom_heights = $drawers['custom_heights'] ?? [];
+        $custom_heights = isset($drawers['custom_heights']) && is_array($drawers['custom_heights']) ? $drawers['custom_heights'] : [];
         
         foreach ($drawers as $drawer_type => $count) {
             if ($drawer_type === 'custom_heights') {
                 continue;
             }
             
-            // اعتبارسنجی count
             $count = intval($count);
             if ($count <= 0) {
                 continue;
             }
             
-            if ($drawer_type === 'custom') {
+            if (strpos($drawer_type, 'custom_') === 0) {
                 $drawer_height = 8;
-                if (!empty($custom_heights['custom_6'])) {
+                if (strpos($drawer_type, 'custom_6') !== false) {
                     $drawer_height = 6;
-                } elseif (!empty($custom_heights['custom_8'])) {
+                } elseif (strpos($drawer_type, 'custom_8') !== false) {
                     $drawer_height = 8;
-                } elseif (!empty($custom_heights['custom_12'])) {
+                } elseif (strpos($drawer_type, 'custom_12') !== false) {
                     $drawer_height = 12;
                 }
                 $drawers_total += wccb_get_drawer_price('custom', $color, $count, $cabinet_width, $drawer_height);
@@ -272,23 +296,73 @@ function wccb_calculate_price($product_config, $user_input) {
                 $drawers_total += wccb_get_drawer_price($drawer_type, $color, $count);
             }
         }
+        
+        if (!empty($custom_heights)) {
+            $height_map = [
+                'custom_6' => 6,
+                'custom_8' => 8,
+                'custom_12' => 12,
+            ];
+            
+            foreach ($custom_heights as $type => $count) {
+                $count = intval($count);
+                if ($count <= 0) {
+                    continue;
+                }
+                $drawer_height = $height_map[$type] ?? 8;
+                $drawers_total += wccb_get_drawer_price('custom', $color, $count, $cabinet_width, $drawer_height);
+            }
+        }
     }
     
-    $cabinet_cost = $vertical_panels + $horizontal_panels + $shelves_total + $screws_for_shelves + $screws_for_horizontal + $back_strip_price + $rod_total;
+    // ==========================================
+    // ۴. محاسبه نهایی
+    // ==========================================
+    $cabinet_cost = $vertical_panels + $horizontal_panels + $shelves_total + 
+                    $screws_for_shelves + $screws_for_horizontal + 
+                    $back_strip_price + $rod_total;
+    
     $multiplier = wccb_get_multiplier($color);
-    $cabinet_final_price = $cabinet_cost * $multiplier;
-    $final_price = $cabinet_final_price + $drawers_total;
+    $final_price = ($cabinet_cost * $multiplier) + $drawers_total;
     
-    // لاگ برای بررسی (فعال در حالت DEBUG)
+    // ==========================================
+    // ۵. لاگ کامل (فقط در حالت DEBUG)
+    // ==========================================
     if (defined('WP_DEBUG') && WP_DEBUG) {
-        error_log('🔍 [DEBUG] Cabinet Width: ' . $cabinet_width);
-        error_log('🔍 [DEBUG] Color: ' . $color);
-        error_log('🔍 [DEBUG] Multiplier: ' . $multiplier);
-        error_log('🔍 [DEBUG] Cabinet Cost: ' . $cabinet_cost);
-        error_log('🔍 [DEBUG] Final Price: ' . $final_price);
+        error_log('========== 🔍 WCCB FULL DEBUG ==========');
+        error_log('📦 Product Config: ' . print_r($product_config, true));
+        error_log('👤 User Input: ' . print_r($user_input, true));
+        error_log('📊 SETTINGS:');
+        error_log('  - panel_prices[12]: ' . ($settings['panel_prices'][12] ?? 'NOT SET'));
+        error_log('  - panel_prices[16]: ' . ($settings['panel_prices'][16] ?? 'NOT SET'));
+        error_log('  - panel_prices[24]: ' . ($settings['panel_prices'][24] ?? 'NOT SET'));
+        error_log('  - rod_prices[15_20]: ' . ($settings['rod_prices']['15_20'] ?? 'NOT SET'));
+        error_log('  - back_strip_prices[15_20]: ' . ($settings['back_strip_prices']['15_20'] ?? 'NOT SET'));
+        error_log('  - screw_price_per_shelf: ' . ($settings['screw_price_per_shelf'] ?? 'NOT SET'));
+        error_log('  - multipliers[white]: ' . ($settings['multipliers']['white'] ?? 'NOT SET'));
+        error_log('🧮 CALCULATIONS:');
+        error_log('  - panel_width: ' . $panel_width);
+        error_log('  - panel_price: ' . $panel_price);
+        error_log('  - vertical_panels: ' . $vertical_panels);
+        error_log('  - horizontal_panel_price: ' . $horizontal_panel_price);
+        error_log('  - horizontal_panels: ' . $horizontal_panels);
+        error_log('  - shelves_total: ' . $shelves_total);
+        error_log('  - screws_for_shelves: ' . $screws_for_shelves);
+        error_log('  - screws_for_horizontal: ' . $screws_for_horizontal);
+        error_log('  - back_strip_price: ' . $back_strip_price);
+        error_log('  - rod_total: ' . $rod_total);
+        error_log('  - drawers_total: ' . $drawers_total);
+        error_log('💰 FINAL:');
+        error_log('  - cabinet_cost: ' . $cabinet_cost);
+        error_log('  - multiplier: ' . $multiplier);
+        error_log('  - final_price: ' . $final_price);
+        error_log('==========================================');
     }
     
-    return round($final_price, 2);
+    // ==========================================
+    // ۶. برگرداندن عدد دقیق
+    // ==========================================
+    return round($final_price * 100) / 100;
 }
 
 // ==========================================
@@ -307,7 +381,6 @@ function wccb_set_default_price($post_id, $post, $update) {
     }
 }
 
-// ✅ پشتیبانی از واریاسیون‌ها
 add_action('woocommerce_variation_options_pricing', 'wccb_set_variation_default_price', 10, 3);
 function wccb_set_variation_default_price($loop, $variation_data, $variation) {
     $enable_cabinet = get_post_meta($variation->ID, '_wccb_enable_cabinet', true);
@@ -333,9 +406,6 @@ function wccb_force_purchasable($purchasable, $product) {
     return $purchasable;
 }
 
-// ==========================================
-// مخفی کردن قیمت در آرشیو
-// ==========================================
 add_filter('woocommerce_get_price_html', 'wccb_hide_price_in_archive', 10, 2);
 function wccb_hide_price_in_archive($price, $product) {
     if (!is_product()) {
@@ -349,9 +419,6 @@ function wccb_hide_price_in_archive($price, $product) {
     return $price;
 }
 
-// ==========================================
-// تغییر دکمه افزودن به سبد خرید در آرشیو
-// ==========================================
 add_filter('woocommerce_loop_add_to_cart_link', 'wccb_remove_add_to_cart_in_archive', 10, 2);
 function wccb_remove_add_to_cart_in_archive($button, $product) {
     $product_id = $product->get_id();
@@ -380,9 +447,6 @@ function wccb_load_files() {
     }
 }
 
-// ==========================================
-// حذف دکمه Add to Cart پیش‌فرض
-// ==========================================
 add_action('woocommerce_single_product_summary', 'wccb_remove_default_add_to_cart', 1);
 function wccb_remove_default_add_to_cart() {
     global $product;
