@@ -160,6 +160,19 @@ function wccb_render_product_meta_box($post) {
                 <span class="wccb-hint">Select cabinet height</span>
             </div>
             
+            <!-- ========================================== -->
+            <!-- ✅ Panel Width (Depth) - فیلد جدید -->
+            <!-- ========================================== -->
+            <div class="wccb-row">
+                <label>Panel Width (Depth):</label>
+                <select name="wccb_panel_width">
+                    <option value="12" <?php selected($product_config['panel_width'], 12); ?>>12"</option>
+                    <option value="16" <?php selected($product_config['panel_width'], 16); ?>>16"</option>
+                    <option value="24" <?php selected($product_config['panel_width'], 24); ?>>24"</option>
+                </select>
+                <span class="wccb-hint">Select the panel width (depth) for this product</span>
+            </div>
+            
             <!-- Available Depths -->
             <div class="wccb-row">
                 <label>Available Depths:</label>
@@ -266,6 +279,22 @@ function wccb_render_product_meta_box($post) {
 // ==========================================
 add_action('save_post_product', 'wccb_save_product_meta_box');
 function wccb_save_product_meta_box($post_id) {
+    // ✅ دیباگ کامل
+    error_log('🔍 WCCB Save - STARTED for post ID: ' . $post_id);
+    error_log('🔍 WCCB Save - POST Data: ' . print_r($_POST, true));
+    
+    // ✅ بررسی Nonce با جزئیات بیشتر
+    if (!isset($_POST['wccb_product_nonce'])) {
+        error_log('❌ WCCB Save - Nonce not found in POST!');
+        return;
+    }
+    
+    if (!wp_verify_nonce($_POST['wccb_product_nonce'], 'wccb_product_meta')) {
+        error_log('❌ WCCB Save - Nonce verification failed!');
+        return;
+    }
+    
+    error_log('🔍 WCCB Save - POST Data: ' . print_r($_POST, true));
     // ✅ بررسی Nonce
     if (!isset($_POST['wccb_product_nonce']) || !wp_verify_nonce($_POST['wccb_product_nonce'], 'wccb_product_meta')) {
         return;
@@ -283,6 +312,10 @@ function wccb_save_product_meta_box($post_id) {
     $enable_cabinet = isset($_POST['wccb_enable_cabinet']) ? '1' : '0';
     update_post_meta($post_id, '_wccb_enable_cabinet', $enable_cabinet);
     
+    // ✅ دریافت مقدار panel_width از POST
+    $panel_width = isset($_POST['wccb_panel_width']) ? intval($_POST['wccb_panel_width']) : 12;
+    $panel_width = in_array($panel_width, [12, 16, 24]) ? $panel_width : 12;
+    
     // ✅ ذخیره تنظیمات محصول با اعتبارسنجی
     $allowed_depths = [];
     if (isset($_POST['wccb_allowed_depths']) && is_array($_POST['wccb_allowed_depths'])) {
@@ -299,7 +332,7 @@ function wccb_save_product_meta_box($post_id) {
     
     $product_config = [
         'height' => isset($_POST['wccb_height']) ? intval($_POST['wccb_height']) : 72,
-        'panel_width' => 12,
+        'panel_width' => $panel_width,  // ✅ مقدار صحیح از POST
         'allowed_depths' => $allowed_depths,
         'has_rod' => isset($_POST['wccb_has_rod']),
         'rod_count' => isset($_POST['wccb_rod_count']) ? intval($_POST['wccb_rod_count']) : 1,
