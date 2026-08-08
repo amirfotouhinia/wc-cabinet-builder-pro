@@ -38,7 +38,6 @@ function wccb_enqueue_product_assets() {
         wp_enqueue_style('wccb-style', WCCB_URL . 'assets/style.css', [], WCCB_VERSION);
         wp_enqueue_script('wccb-calculator', WCCB_URL . 'frontend/js/calculator.php', ['jquery'], WCCB_VERSION, true);
         
-        // ✅ ارسال nonce و تنظیمات به جاوااسکریپت
         wp_localize_script('wccb-calculator', 'wccb_vars', [
             'isBuildingBuilder' => $is_building_builder ? 'true' : 'false',
             'ajax_url' => admin_url('admin-ajax.php'),
@@ -165,7 +164,9 @@ function wccb_product_fields() {
         <input type="hidden" name="wccb_shelves" value="0">
         <?php endif; ?>
         
-        <!-- Drawers -->
+        <!-- ========================================== -->
+        <!-- Drawers - ✅ اصلاح‌شده (حذف فیلد تعداد) -->
+        <!-- ========================================== -->
         <?php if ($has_drawers && $max_drawers > 0 && !empty($drawer_options)): ?>
         <div class="wccb-field" style="margin:15px 0;">
             <label style="font-weight:600; display:inline-block; width:150px;">Drawers:</label>
@@ -174,7 +175,7 @@ function wccb_product_fields() {
                     <select name="wccb_drawer_type[]" class="wccb-drawer-type" style="padding:5px; min-width:180px;">
                         <option value="">Select...</option>
                     </select>
-                    <input type="number" name="wccb_drawer_count[]" class="wccb-drawer-count" min="1" max="5" value="1" style="width:60px;">
+                    <!-- ✅ فیلد تعداد حذف شد -->
                     <button type="button" class="wccb-remove-drawer" style="color:#d63638; background:none; border:none; font-size:20px; cursor:pointer;">×</button>
                 </div>
             </div>
@@ -369,7 +370,7 @@ function wccb_product_fields() {
         }
         
         // ==========================================
-        // محاسبه قیمت با AJAX (اصلاح‌شده)
+        // ✅ محاسبه قیمت با AJAX (اصلاح‌شده کامل)
         // ==========================================
         function updatePrice() {
             var width = parseInt($('#wccb_width').val()) || 20;
@@ -377,27 +378,53 @@ function wccb_product_fields() {
             var shelves = parseInt($('#wccb_shelves').val()) || 0;
             var panelWidth = parseInt($('#wccb_panel_width').val()) || 12;
             
+            // ==========================================
+            // ✅ جمع‌آوری داده‌های کشوها (بدون فیلد تعداد)
+            // ==========================================
             var drawers = {};
+            var hasDrawers = false;
+            
             $('#wccb_drawer_container .wccb-drawer-row').each(function() {
                 var $row = $(this);
                 var type = $row.find('.wccb-drawer-type').val();
-                var count = parseInt($row.find('.wccb-drawer-count').val()) || 1;
-                if (type && count > 0) {
+                
+                // ✅ هر ردیف = ۱ عدد کشو (فیلد تعداد حذف شده)
+                if (type && type !== '') {
+                    hasDrawers = true;
+                    
+                    // ✅ کشوهای کاستوم با ارتفاع‌های مختلف
                     if (type === 'custom_6' || type === 'custom_8' || type === 'custom_12') {
                         if (!drawers.custom_heights) {
                             drawers.custom_heights = {};
                         }
-                        drawers.custom_heights[type] = (drawers.custom_heights[type] || 0) + count;
+                        drawers.custom_heights[type] = (drawers.custom_heights[type] || 0) + 1;
                     } else {
-                        drawers[type] = (drawers[type] || 0) + count;
+                        // کشوهای استاندارد
+                        drawers[type] = (drawers[type] || 0) + 1;
                     }
                 }
             });
             
-            $('#wccb_drawers_data').val(JSON.stringify(drawers));
+            // ==========================================
+            // ✅ ذخیره در فیلد مخفی
+            // ==========================================
+            if (hasDrawers) {
+                $('#wccb_drawers_data').val(JSON.stringify(drawers));
+            } else {
+                $('#wccb_drawers_data').val('');
+            }
             
-            // ✅ ارسال درخواست AJAX با nonce
-            $.post(ajaxUrl, {
+            // ==========================================
+            // ✅ دیباگ در کنسول
+            // ==========================================
+            console.log('📦 Drawers Data:', $('#wccb_drawers_data').val());
+            
+            // ==========================================
+            // نمایش وضعیت لودینگ
+            // ==========================================
+            $('#wccb_total_price').text('Loading...');
+            
+            var requestData = {
                 action: 'wccb_calculate_price',
                 nonce: wccbNonce,
                 product_id: productId,
@@ -406,23 +433,43 @@ function wccb_product_fields() {
                 shelves: shelves,
                 panel_width: panelWidth,
                 drawers: JSON.stringify(drawers)
-            }, function(response) {
-                if (response.success && response.data.price) {
-                    var price = response.data.price;
-                    var builderPrice = price * 0.9;
-                    var regularPrice = price * 1.1;
+            };
+            
+            $.ajax({
+                url: ajaxUrl,
+                type: 'POST',
+                data: requestData,
+                success: function(response) {
+                    console.log('✅ AJAX Response:', response);
                     
-                    if (isBuildingBuilder) {
-                        $('#wccb_regular_price').text('$' + regularPrice.toFixed(2));
-                        $('#wccb_total_price').text('$' + builderPrice.toFixed(2));
+                    if (response.success && response.data && typeof response.data.price !== 'undefined') {
+                        var price = parseFloat(response.data.price);
+                        
+                        if (!isNaN(price) && price > 0) {
+                            var displayPrice = Math.floor(price * 100) / 100;
+                            
+                            // ✅ اصلاح‌شده
+if (isBuildingBuilder) {
+    var regularPrice = price * (3 / 2.8);  // محاسبه قیمت عادی از روی قیمت ویژه
+    var builderPrice = price;               // قیمت ویژه همان قیمت دریافتی از سرور است
+    $('#wccb_regular_price').text('$' + regularPrice.toFixed(2));
+    $('#wccb_total_price').text('$' + builderPrice.toFixed(2));
+} else {
+    $('#wccb_total_price').text('$' + price.toFixed(2));
+}
+                        } else {
+                            console.error('❌ Invalid price:', price);
+                            $('#wccb_total_price').text('Error');
+                        }
                     } else {
-                        $('#wccb_total_price').text('$' + price.toFixed(2));
+                        console.error('❌ Response error:', response);
+                        $('#wccb_total_price').text('Error');
                     }
-                } else {
-                    console.warn('Price calculation failed:', response);
+                },
+                error: function(xhr, status, error) {
+                    console.error('❌ AJAX Error:', error);
+                    $('#wccb_total_price').text('Error');
                 }
-            }).fail(function() {
-                console.warn('AJAX request failed');
             });
         }
         
@@ -468,20 +515,26 @@ function wccb_product_fields() {
             updatePrice();
         });
         
-        // Add drawer
+        // ==========================================
+        // ✅ Add drawer (اصلاح‌شده)
+        // ==========================================
         $('#wccb-add-drawer').on('click', function() {
             var count = $('#wccb_drawer_container .wccb-drawer-row').length;
             if (count < maxDrawers) {
                 var $row = $('#wccb_drawer_container .wccb-drawer-row:first').clone();
                 $row.find('select').val('');
-                $row.find('input[type="number"]').val(1);
+                // ✅ فیلد تعداد حذف شده
                 $('#wccb_drawer_container').append($row);
                 updateDrawersList();
                 updatePrice();
+            } else {
+                alert('Maximum ' + maxDrawers + ' drawers allowed.');
             }
         });
         
-        // Remove drawer
+        // ==========================================
+        // ✅ Remove drawer (اصلاح‌شده)
+        // ==========================================
         $(document).on('click', '.wccb-remove-drawer', function() {
             if ($('#wccb_drawer_container .wccb-drawer-row').length > 1) {
                 $(this).closest('.wccb-drawer-row').remove();
@@ -490,8 +543,10 @@ function wccb_product_fields() {
             }
         });
         
-        // Change drawer type or count
-        $(document).on('change', '.wccb-drawer-type, .wccb-drawer-count', function() {
+        // ==========================================
+        // ✅ Change drawer type (اصلاح‌شده)
+        // ==========================================
+        $(document).on('change', '.wccb-drawer-type', function() {
             updatePrice();
         });
         
